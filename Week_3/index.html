@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>송금 앱 데모 — 하늘 구름 스크롤</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg1: #06132a;
+      --bg2: #081827;
+      --card: linear-gradient(135deg,#0b78ff22 0%, #5afeff22 100%);
+      --accent:#00e6a0;
+      --glass: rgba(255,255,255,0.06);
+      --muted:#9fb0c8;
+      --glass-2: rgba(255,255,255,0.03);
+    }
+    html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Arial;color:#e8f4ff;background:linear-gradient(180deg,var(--bg1),var(--bg2));-webkit-font-smoothing:antialiased;scroll-behavior:smooth;}
+    .stage{min-height:200vh; /* 길게 스크롤 할 수 있게 */ position:relative; overflow-x:hidden; padding:32px 20px 120px;}
+    /* Clouds container (absolute over the stage) */
+    .clouds {
+      position:fixed; inset:0; pointer-events:none; z-index:1; overflow:visible;
+    }
+    .cloud {
+      position:absolute; will-change:transform,opacity;
+      filter: drop-shadow(0 8px 28px rgba(2,10,30,.45));
+      opacity:.95;
+      transform-origin:center;
+      animation: drift 12s linear infinite;
+    }
+    @keyframes drift {
+      0%{ transform: translateX(-6vw) }
+      50%{ transform: translateX(6vw) }
+      100%{ transform: translateX(-6vw) }
+    }
+
+    /* Top header */
+    header.appbar{position:relative; z-index:5; display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:28px;}
+    .brand{display:flex;gap:12px;align-items:center}
+    .logo{
+      width:46px;height:46px;border-radius:12px; background:linear-gradient(135deg,#00d4ff,#7affb3); box-shadow: 0 8px 30px rgba(0,210,255,.12), inset 0 -6px 18px rgba(255,255,255,.04);
+      display:flex;align-items:center;justify-content:center;font-weight:800;color:#022;width:46px;height:46px;font-size:18px;
+    }
+    .title{font-weight:700;font-size:18px;color:#e8fbff}
+    .sub{font-size:12px;color:var(--muted)}
+
+    /* Main card */
+    .hero{position:relative; z-index:4; max-width:920px; margin:0 auto 24px; display:grid; grid-template-columns:1fr 260px; gap:20px;}
+    .balance-card{
+      background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
+      border:1px solid var(--glass);
+      border-radius:18px;
+      padding:22px;
+      box-shadow: 0 18px 40px rgba(1,8,20,.55), inset 0 1px 0 rgba(255,255,255,.02);
+      min-height:140px;
+      display:flex;flex-direction:column;justify-content:space-between;
+    }
+    .balance-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .balance-amount{font-weight:800;font-size:28px;color:#fff}
+    .small{font-size:12px;color:var(--muted)}
+    .actions{display:flex;gap:12px;margin-top:14px}
+    .action-btn{background:linear-gradient(90deg,#00e6a0,#00b7ff); color:#012; padding:10px 14px;border-radius:12px;font-weight:700;border:none;cursor:pointer;box-shadow: 0 8px 26px rgba(0,183,255,.12);}
+
+    .card-side{
+      display:flex;flex-direction:column;gap:12px;
+    }
+    .card-mini{
+      background:linear-gradient(135deg,#ffffff05,#00000010);
+      border-radius:14px;padding:14px;border:1px solid var(--glass-2); color:#eaf9ff; display:flex;flex-direction:column;gap:6px;box-shadow: 0 10px 24px rgba(3,9,22,.45);
+    }
+
+    /* Transactions list */
+    .tx-list{max-width:920px;margin:22px auto 0; position:relative; z-index:4;}
+    .tx-item{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-radius:12px;margin-bottom:10px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02)); border:1px solid rgba(255,255,255,0.02);}
+    .tx-left{display:flex;gap:12px;align-items:center}
+    .tx-ico{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#7aa2ff,#ff8aa0);display:flex;align-items:center;justify-content:center;font-weight:700;color:#012}
+    .tx-what{font-weight:600}
+    .tx-when{font-size:12px;color:var(--muted)}
+    .tx-amt{font-weight:800;color:#dffcf4}
+
+    /* Bottom nav */
+    nav.bottom{
+      position:fixed; left:50%; transform:translateX(-50%); bottom:18px; z-index:6;
+      display:flex; gap:12px; background:linear-gradient(180deg,#ffffff06,#00000006); padding:8px; border-radius:28px; border:1px solid rgba(255,255,255,0.04); backdrop-filter: blur(6px);
+      box-shadow: 0 10px 30px rgba(2,12,30,.45);
+    }
+    .nav-btn{padding:10px 14px;border-radius:18px;border:none;background:transparent;color:#dff3ff;font-weight:700;cursor:pointer}
+
+    /* responsive */
+    @media (max-width:840px){
+      .hero{grid-template-columns:1fr;}
+      .card-side{order:2}
+    }
+    @media (max-width:480px){
+      header.appbar{flex-direction:column;align-items:flex-start;gap:8px}
+      .logo{width:44px;height:44px}
+    }
+  </style>
+</head>
+<body>
+  <div class="clouds" id="clouds"></div>
+
+  <div class="stage" id="stage">
+    <header class="appbar">
+      <div class="brand">
+        <div class="logo" aria-hidden>송</div>
+        <div>
+          <div class="title">송금 데모</div>
+          <div class="sub">간편하고 빠른 금융 경험</div>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div class="small">환영합니다</div>
+        <div style="font-weight:700;color:#dffbf0">사용자님</div>
+      </div>
+    </header>
+
+    <section class="hero" aria-label="주요 정보">
+      <div class="balance-card" role="region" aria-label="계좌 잔액">
+        <div class="balance-head">
+          <div>
+            <div class="small">내 계좌</div>
+            <div class="balance-amount">₩ 3,482,500</div>
+          </div>
+          <div class="small">최근 동작: 2시간 전</div>
+        </div>
+
+        <div class="actions" role="toolbar">
+          <button class="action-btn">송금</button>
+          <button class="action-btn">결제</button>
+          <button class="action-btn">모아보기</button>
+        </div>
+      </div>
+
+      <aside class="card-side">
+        <div class="card-mini">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div class="small">나의 포인트</div>
+              <div style="font-weight:800;color:#eafff6">12,400P</div>
+            </div>
+            <div style="font-size:12px;color:var(--muted)">레벨: 골드</div>
+          </div>
+        </div>
+        <div class="card-mini">
+          <div class="small">빠른 요청</div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="action-btn" style="background:linear-gradient(90deg,#ffd36b,#ff6b9b)">청구</button>
+            <button class="action-btn" style="background:linear-gradient(90deg,#7aa2ff,#6bfff0);color:#022">이체</button>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="tx-list" aria-label="최근 거래">
+      <div style="max-width:920px;margin:0 auto 10px;color:var(--muted);font-weight:700">최근 거래</div>
+      <div class="tx-item">
+        <div class="tx-left">
+          <div class="tx-ico">🍽</div>
+          <div>
+            <div class="tx-what">카페 결제</div>
+            <div class="tx-when">오늘 · 10:34</div>
+          </div>
+        </div>
+        <div class="tx-amt">-₩12,400</div>
+      </div>
+
+      <div class="tx-item">
+        <div class="tx-left">
+          <div class="tx-ico" style="background:linear-gradient(135deg,#7affb3,#00d4ff)">🏧</div>
+          <div>
+            <div class="tx-what">월급 입금</div>
+            <div class="tx-when">어제 · 09:00</div>
+          </div>
+        </div>
+        <div class="tx-amt" style="color:#bff5ff">+₩3,000,000</div>
+      </div>
+
+      <div class="tx-item">
+        <div class="tx-left">
+          <div class="tx-ico" style="background:linear-gradient(135deg,#ffd36b,#ff8aa0)">🎁</div>
+          <div>
+            <div class="tx-what">선물 보내기</div>
+            <div class="tx-when">2일 전</div>
+          </div>
+        </div>
+        <div class="tx-amt">-₩45,000</div>
+      </div>
+    </section>
+
+  </div>
+
+  <nav class="bottom" role="navigation" aria-label="하단 네비게이션">
+    <button class="nav-btn">홈</button>
+    <button class="nav-btn">내역</button>
+    <button class="nav-btn">송금</button>
+    <button class="nav-btn">더보기</button>
+  </nav>
+
+  <script>
+    // 하늘 구름 생성 + 스크롤에 따라 '내려오는' 효과 (패럴랙스)
+    (function(){
+      const cloudContainer = document.getElementById('clouds');
+      const stage = document.getElementById('stage');
+      const CLOUD_COUNT = 10;
+      const vw = () => Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+
+      // simple cloud SVG template
+      function makeCloudSVG(size, color = 'rgba(255,255,255,0.95)'){
+        const s = size;
+        return `<svg viewBox="0 0 64 40" width="${s}" height="${Math.round(s*0.6)}" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+          <defs><linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="${color}"/><stop offset="1" stop-color="${color}"/></linearGradient></defs>
+          <g fill="url(#g)"><path d="M20 12c0-6.6-5.4-12-12-12S-4 5.4-4 12c0 6.6 5.4 12 12 12h28c8 0 12-7 6-12-2-1.6-4.6-2-6-2-2.2 0-6 2-6 6H20z" transform="translate(24,8) scale(.9)"/></g>
+        </svg>`;
+      }
+
+      const clouds = [];
+      for(let i=0;i<CLOUD_COUNT;i++){
+        const c = document.createElement('div');
+        const size = 80 + Math.round(Math.random()*240);
+        c.className = 'cloud';
+        c.style.left = Math.random()*110 - 5 + 'vw';
+        // initial vertical offset above the page so they appear to come down
+        c.dataset.initY = - (100 + Math.random()*300);
+        c.dataset.speed = (0.15 + Math.random()*0.65).toString(); // scroll multiplier
+        c.style.top = c.dataset.initY + 'px';
+        c.style.opacity = (0.35 + Math.random()*0.7).toString();
+        c.innerHTML = makeCloudSVG(size);
+        // size scale
+        const scale = 0.6 + Math.random()*1.6;
+        c.style.transform = `scale(${scale})`;
+        // animation duration variation for horizontal drift
+        c.style.animationDuration = (10 + Math.random()*18) + 's';
+        cloudContainer.appendChild(c);
+        clouds.push(c);
+      }
+
+      // update position on scroll (efficient with requestAnimationFrame)
+      let lastScroll = window.scrollY;
+      let ticking = false;
+      function onScroll(){
+        lastScroll = window.scrollY;
+        if(!ticking){
+          window.requestAnimationFrame(()=>{ updateClouds(lastScroll); ticking=false; });
+          ticking = true;
+        }
+      }
+
+      function updateClouds(scrollY){
+        const h = Math.max(document.documentElement.clientHeight, window.innerHeight);
+        clouds.forEach(c=>{
+          const speed = parseFloat(c.dataset.speed);
+          const init = parseFloat(c.dataset.initY);
+          // clouds move downward proportional to scroll (더 크게 하면 '내리는' 느낌 강화)
+          const y = init + scrollY * (0.9 * speed + 0.3);
+          c.style.top = y + 'px';
+          // fade out when far below stage to keep it subtle
+          const rel = (y - scrollY) / (h*1.4);
+          const op = Math.max(0, Math.min(1, 1 - rel));
+          c.style.opacity = (parseFloat(c.style.opacity) * op).toString();
+        });
+      }
+
+      window.addEventListener('scroll', onScroll, {passive:true});
+      // initial tick to position clouds correctly
+      updateClouds(window.scrollY);
+
+      // optional: on resize, reposition some clouds to remain in view
+      window.addEventListener('resize', ()=>{
+        clouds.forEach(c=> c.style.left = Math.random()*110 - 5 + 'vw');
+      });
+    })();
+  </script>
+</body>
+</html>
